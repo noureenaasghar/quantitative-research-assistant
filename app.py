@@ -1,32 +1,13 @@
-# ============================================================
-# AI-ASSISTED QUANTITATIVE RESEARCH ASSISTANT
-# Complete Streamlit Application
-# ============================================================
-
 import os
-import io
-import textwrap
-import warnings
-from datetime import datetime
-
 import streamlit as st
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-from scipy import stats
-import statsmodels.api as sm
-
 from groq import Groq
-
-warnings.filterwarnings("ignore")
 
 # ============================================================
 # 1. PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
-    page_title="AI Quantitative Research Assistant",
+    page_title="AI-Assisted Quantitative Research Assistant",
     page_icon="🔬",
     layout="wide"
 )
@@ -35,27 +16,27 @@ st.title("🔬 AI-Assisted Quantitative Research Assistant")
 
 st.markdown(
     """
-    An educational research-support tool for quantitative
+    A step-by-step research development tool for quantitative
     health and pharmacy research.
 
-    It supports dataset exploration, statistical analysis,
-    research planning, and AI-assisted interpretation.
+    **Research planning → Methodology → Variables → Analysis plan
+    → Interpretation → Research proposal**
     """
 )
 
 st.caption(
-    "Demonstration prototype | Statistical outputs require "
-    "researcher verification before scientific use."
+    "Educational research-support prototype. "
+    "All AI-generated methodological suggestions require researcher review."
 )
 
 # ============================================================
-# 2. DEMONSTRATION RESEARCH TOPIC
+# 2. DEFAULT RESEARCH TOPIC
 # ============================================================
 
 DEFAULT_TOPIC = (
-    "Sex-Based Differences in Kidney-Related Healthcare "
-    "Utilization, Monitoring, and Clinical Outcomes Among "
-    "Patients with Tuberous Sclerosis Complex (TSC)"
+    "Sex-Based Differences in Kidney-Related Healthcare Utilization, "
+    "Monitoring, and Clinical Outcomes Among Patients with "
+    "Tuberous Sclerosis Complex (TSC)"
 )
 
 DEFAULT_OBJECTIVE = (
@@ -65,56 +46,23 @@ DEFAULT_OBJECTIVE = (
 )
 
 # ============================================================
-# 3. APPLICATION MODULES
+# 3. SESSION STATE
 # ============================================================
 
-MODULES = {
-    "Research Questions": (
-        "Develop focused, answerable quantitative research "
-        "questions and objectives."
-    ),
-    "Study Design & Methodology": (
-        "Explore suitable observational study designs, "
-        "populations, eligibility criteria, and data sources."
-    ),
-    "Variables & Data Collection": (
-        "Identify outcomes, exposures, covariates, operational "
-        "definitions, and data collection requirements."
-    ),
-    "Statistical Analysis Planner": (
-        "Select statistical methods based on outcome type, "
-        "study design, assumptions, and available data."
-    ),
-    "Advanced Methods Guidance": (
-        "Explore methods such as regression, survival analysis, "
-        "propensity scores, longitudinal analysis, and "
-        "competing-risk approaches when appropriate."
-    ),
-    "Research Quality Reviewer": (
-        "Review methodological clarity, bias, confounding, "
-        "missing data, limitations, and reproducibility."
-    ),
-    "Literature Gap & Rationale": (
-        "Develop a cautious literature-review framework and "
-        "identify possible research gaps requiring verification."
-    ),
-    "Research Proposal Builder": (
-        "Organize the research rationale, objectives, methods, "
-        "analysis plan, and limitations into a proposal draft."
-    ),
-    "Research Integrity & Validation": (
-        "Check consistency, unsupported claims, fabricated "
-        "results, ethical considerations, and validation needs."
-    )
-}
+if "research_outputs" not in st.session_state:
+    st.session_state.research_outputs = {}
+
+if "research_topic" not in st.session_state:
+    st.session_state.research_topic = DEFAULT_TOPIC
+
+if "research_objective" not in st.session_state:
+    st.session_state.research_objective = DEFAULT_OBJECTIVE
 
 # ============================================================
-# 4. GROQ API CONNECTION
+# 4. GROQ CONNECTION
 # ============================================================
 
 def get_groq_client():
-
-    api_key = None
 
     try:
         api_key = st.secrets["GROQ_API_KEY"]
@@ -133,108 +81,102 @@ def get_groq_client():
 MODEL_NAME = "openai/gpt-oss-20b"
 
 # ============================================================
-# 5. AI SYSTEM INSTRUCTIONS
+# 5. AI INSTRUCTIONS
 # ============================================================
 
 SYSTEM_PROMPT = """
-You are an AI-assisted quantitative health research support
-assistant.
+You are an AI-assisted quantitative health research assistant.
 
-Your role is to help researchers plan, understand, and review
-quantitative health and pharmacy research.
+Your role is to support researchers in developing quantitative
+health and pharmacy research, with particular attention to
+pharmacy practice, healthcare utilization, health services,
+clinical outcomes, and population health.
 
-IMPORTANT RULES:
+IMPORTANT INSTRUCTIONS:
 
-1. Never invent study findings, numerical results, datasets,
-   citations, journal articles, DOIs, or references.
+1. Explain research and statistical concepts in clear,
+   accessible academic language.
 
-2. Clearly distinguish between:
-   - Information provided by the user
-   - General methodological guidance
-   - Assumptions
-   - Suggestions requiring verification
+2. Help the researcher understand the reasoning behind
+   methodological decisions instead of merely listing methods.
 
-3. Do not claim that a statistical method is appropriate
-   without considering the outcome type, study design,
-   distribution, sample size, and assumptions.
+3. Do not invent study findings, patient data, references,
+   journal articles, DOIs, or citations.
 
-4. For count outcomes, discuss Poisson regression and
-   negative binomial regression where appropriate. Mention
-   overdispersion assessment and exposure/follow-up time.
+4. Clearly distinguish established information, assumptions,
+   methodological suggestions, and points requiring verification.
 
-5. For binary outcomes, consider logistic regression or
-   other suitable models depending on the study design.
+5. Consider study objectives, research questions, population,
+   study design, outcome types, and available data before
+   recommending statistical methods.
 
-6. For time-to-event outcomes, discuss survival analysis
-   and relevant assumptions.
+6. Consider confounding, selection bias, information bias,
+   missing data, sample size, and study limitations.
 
-7. Consider confounding, missing data, selection bias,
-   measurement bias, and limitations.
+7. Do not automatically recommend advanced methods.
+   Explain when a method is necessary and when it may not be suitable.
 
-8. Do not interpret synthetic demonstration data as real
-   patient evidence.
+8. For count outcomes, explain Poisson and negative binomial
+   regression where appropriate.
 
-9. Explain statistical concepts in clear, accessible language.
+9. For binary outcomes, explain suitable approaches such as
+   logistic regression where appropriate.
 
-10. State when a statistician, supervisor, or subject expert
-    should verify the analysis.
+10. For time-to-event outcomes, explain survival analysis
+    where appropriate.
 
-11. Use structured headings and practical recommendations.
+11. Never interpret synthetic or hypothetical examples as
+    real patient evidence.
 
-12. Do not present a possible literature gap as established
-    fact unless supporting sources have been provided.
+12. Do not present a possible literature gap as an established
+    fact without supporting literature.
+
+13. Keep the researcher's original topic and objectives in focus.
+
+14. Explain technical terminology briefly when introducing it.
+
+15. Use structured headings and practical recommendations.
 """
 
 # ============================================================
 # 6. AI RESPONSE FUNCTION
 # ============================================================
 
-def generate_ai_response(
-    client,
-    module,
-    topic,
-    objective,
-    context,
-    uploaded_text=""
-):
+def generate_ai_response(stage, topic, objective, instructions,
+                         previous_work=""):
+
+    client = get_groq_client()
 
     if client is None:
         return (
-            "Groq API connection is not available.\n\n"
-            "Please check that GROQ_API_KEY is correctly added "
-            "to Streamlit Secrets."
+            "Groq API connection is unavailable.\n\n"
+            "Please check that GROQ_API_KEY is correctly "
+            "configured in Streamlit Secrets."
         )
 
-    module_instruction = MODULES.get(
-        module,
-        "Provide relevant quantitative research guidance."
-    )
-
-    user_prompt = f"""
+    prompt = f"""
 RESEARCH TOPIC:
 {topic}
 
-RESEARCH OBJECTIVE:
+OVERALL RESEARCH OBJECTIVE:
 {objective}
 
-SELECTED MODULE:
-{module}
+CURRENT RESEARCH DEVELOPMENT STAGE:
+{stage}
 
-MODULE TASK:
-{module_instruction}
+TASK:
+{instructions}
 
-ADDITIONAL CONTEXT PROVIDED BY THE USER:
-{context}
+WORK COMPLETED IN PREVIOUS STAGES:
+{previous_work[:5000]}
 
-UPLOADED TEXT:
-{uploaded_text}
+Please complete the current stage.
 
-Please complete the selected module.
-
-Use clear headings. Explain technical terms briefly.
-Do not invent evidence, references, data, or results.
-Identify assumptions, limitations, and points requiring
-expert verification.
+Explain the reasoning behind your recommendations.
+Define technical terms briefly.
+Identify assumptions and limitations.
+Do not invent evidence, citations, or study results.
+Keep recommendations relevant to the stated research topic.
 """
 
     try:
@@ -248,11 +190,11 @@ expert verification.
                 },
                 {
                     "role": "user",
-                    "content": user_prompt
+                    "content": prompt
                 }
             ],
             temperature=0.2,
-            max_completion_tokens=3500
+            max_completion_tokens=1800
         )
 
         return response.choices[0].message.content
@@ -261,1715 +203,497 @@ expert verification.
 
         return (
             "AI request could not be completed.\n\n"
-            f"Error details: {str(error)}"
+            f"Error: {str(error)}"
         )
 
 # ============================================================
-# END OF PART 1
-# Continue directly with Part 2 below this line.
-# ============================================================
-# ============================================================
-# 7. SYNTHETIC TSC DEMONSTRATION DATASET
+# 7. RESEARCH CONTEXT
 # ============================================================
 
-def generate_synthetic_data(n=500, seed=42):
+st.header("Research Foundation")
 
-    rng = np.random.default_rng(seed)
-
-    sex = rng.choice(
-        ["Female", "Male"],
-        size=n,
-        p=[0.52, 0.48]
-    )
-
-    age = rng.integers(18, 75, size=n)
-
-    disease_duration = np.maximum(
-        1,
-        age - rng.integers(10, 25, size=n)
-    )
-
-    kidney_monitoring = rng.binomial(
-        1,
-        np.where(sex == "Female", 0.72, 0.65)
-    )
-
-    specialist_visits = rng.poisson(
-        np.where(sex == "Female", 3.8, 3.3)
-    )
-
-    imaging_count = rng.poisson(
-        np.where(sex == "Female", 2.4, 2.1)
-    )
-
-    hospitalization = rng.binomial(
-        1,
-        np.where(sex == "Female", 0.24, 0.29)
-    )
-
-    kidney_complication = rng.binomial(
-        1,
-        np.where(sex == "Female", 0.18, 0.22)
-    )
-
-    eGFR = np.clip(
-        rng.normal(
-            np.where(sex == "Female", 91, 88),
-            14,
-            n
-        ),
-        25,
-        125
-    )
-
-    annual_healthcare_visits = (
-        specialist_visits
-        + rng.poisson(2.0, size=n)
-    )
-
-    data = pd.DataFrame({
-        "patient_id": [
-            f"TSC-{i:04d}" for i in range(1, n + 1)
-        ],
-        "sex": sex,
-        "age": age,
-        "disease_duration": disease_duration,
-        "kidney_monitoring": kidney_monitoring,
-        "specialist_visits": specialist_visits,
-        "imaging_count": imaging_count,
-        "hospitalization": hospitalization,
-        "kidney_complication": kidney_complication,
-        "eGFR": eGFR.round(2),
-        "annual_healthcare_visits": annual_healthcare_visits
-    })
-
-    return data
-
-
-# ============================================================
-# 8. SESSION STATE INITIALIZATION
-# ============================================================
-
-if "data" not in st.session_state:
-    st.session_state.data = generate_synthetic_data()
-
-if "analysis_results" not in st.session_state:
-    st.session_state.analysis_results = {}
-
-if "ai_history" not in st.session_state:
-    st.session_state.ai_history = []
-
-if "selected_topic" not in st.session_state:
-    st.session_state.selected_topic = DEFAULT_TOPIC
-
-if "selected_objective" not in st.session_state:
-    st.session_state.selected_objective = DEFAULT_OBJECTIVE
-
-
-# ============================================================
-# 9. DATA UPLOAD
-# ============================================================
-
-st.sidebar.header("📁 Dataset")
-
-data_source = st.sidebar.radio(
-    "Choose dataset source",
-    [
-        "Synthetic demonstration dataset",
-        "Upload my CSV dataset"
-    ]
+st.write(
+    "Start by defining the research topic and its main objective. "
+    "These will guide all subsequent research-development stages."
 )
 
-if data_source == "Synthetic demonstration dataset":
+st.session_state.research_topic = st.text_area(
+    "Research topic",
+    value=st.session_state.research_topic,
+    height=90,
+    key="research_topic_input"
+)
 
-    if st.sidebar.button("Generate new synthetic dataset"):
+st.session_state.research_objective = st.text_area(
+    "Overall research objective",
+    value=st.session_state.research_objective,
+    height=90,
+    key="research_objective_input"
+)
 
-        st.session_state.data = generate_synthetic_data(
-            seed=int(
-                np.random.default_rng().integers(1, 100000)
-            )
+topic = st.session_state.research_topic
+objective = st.session_state.research_objective
+
+st.divider()
+
+# ============================================================
+# 8. PREVIOUS WORK CONTEXT
+# ============================================================
+
+def get_previous_work():
+
+    collected = []
+
+    for stage_name, output in st.session_state.research_outputs.items():
+
+        collected.append(
+            f"\n{stage_name}\n{output}"
         )
 
-        st.session_state.analysis_results = {}
+    return "\n".join(collected)
 
-        st.rerun()
+# ============================================================
+# 9. RESEARCH WORKFLOW FUNCTION
+# ============================================================
 
-else:
+def research_stage(stage_number, title, description, instructions):
 
-    uploaded_file = st.sidebar.file_uploader(
-        "Upload CSV file",
-        type=["csv"]
+    stage_key = f"stage_{stage_number}"
+
+    st.subheader(f"Step {stage_number}. {title}")
+
+    st.write(description)
+
+    user_instructions = st.text_area(
+        "Additional information or instructions (optional)",
+        key=f"{stage_key}_input",
+        height=90,
+        placeholder=(
+            "Add any specific research details, "
+            "questions, or concerns for this stage..."
+        )
     )
 
-    if uploaded_file is not None:
+    if st.button(
+        f"Generate {title}",
+        key=f"{stage_key}_button",
+        type="primary"
+    ):
 
-        try:
+        if not topic.strip() or not objective.strip():
 
-            uploaded_data = pd.read_csv(uploaded_file)
+            st.error(
+                "Please provide the research topic and objective first."
+            )
 
-            if uploaded_data.empty:
-                st.sidebar.error("Uploaded CSV is empty.")
+        else:
 
-            else:
+            complete_instructions = (
+                instructions
+                + "\n\nAdditional researcher input:\n"
+                + user_instructions
+            )
 
-                st.session_state.data = uploaded_data
+            previous_work = get_previous_work()
 
-                st.session_state.analysis_results = {}
+            with st.spinner(
+                f"Developing Step {stage_number}..."
+            ):
 
-                st.sidebar.success(
-                    "CSV dataset uploaded successfully."
+                result = generate_ai_response(
+                    stage=title,
+                    topic=topic,
+                    objective=objective,
+                    instructions=complete_instructions,
+                    previous_work=previous_work
                 )
 
-        except Exception as error:
+            st.session_state.research_outputs[title] = result
 
-            st.sidebar.error(
-                f"Unable to read CSV: {error}"
-            )
+    if title in st.session_state.research_outputs:
 
+        st.markdown("#### AI Research Output")
 
-# ============================================================
-# 10. DATA VALIDATION FUNCTION
-# ============================================================
-
-def validate_dataset(df):
-
-    results = {}
-
-    results["Number of records"] = len(df)
-
-    results["Number of variables"] = len(df.columns)
-
-    results["Missing cells"] = int(
-        df.isnull().sum().sum()
-    )
-
-    results["Duplicate rows"] = int(
-        df.duplicated().sum()
-    )
-
-    results["Duplicate column names"] = int(
-        df.columns.duplicated().sum()
-    )
-
-    if "patient_id" in df.columns:
-
-        results["Unique patient IDs"] = int(
-            df["patient_id"].nunique()
-        )
-
-        results["Duplicate patient IDs"] = int(
-            df["patient_id"].duplicated().sum()
-        )
-
-    else:
-
-        results["Unique patient IDs"] = "Not available"
-
-        results["Duplicate patient IDs"] = "Not available"
-
-    results["Completely empty columns"] = int(
-        df.isnull().all().sum()
-    )
-
-    return results
-
-
-# ============================================================
-# 11. DATASET OVERVIEW
-# ============================================================
-
-st.header("📊 Dataset Overview")
-
-df = st.session_state.data
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric(
-        "Total records",
-        f"{len(df):,}"
-    )
-
-with col2:
-    st.metric(
-        "Total variables",
-        f"{len(df.columns):,}"
-    )
-
-with col3:
-    st.metric(
-        "Missing cells",
-        f"{df.isnull().sum().sum():,}"
-    )
-
-with st.expander("View dataset", expanded=True):
-
-    st.dataframe(
-        df,
-        use_container_width=True,
-        height=300
-    )
-
-with st.expander("View variable information"):
-
-    variable_info = pd.DataFrame({
-        "Variable": df.columns,
-        "Data type": [
-            str(df[column].dtype)
-            for column in df.columns
-        ],
-        "Non-missing values": [
-            int(df[column].notna().sum())
-            for column in df.columns
-        ],
-        "Missing values": [
-            int(df[column].isna().sum())
-            for column in df.columns
-        ],
-        "Unique values": [
-            int(df[column].nunique())
-            for column in df.columns
-        ]
-    })
-
-    st.dataframe(
-        variable_info,
-        use_container_width=True
-    )
-
-
-# ============================================================
-# 12. DATA QUALITY VALIDATION
-# ============================================================
-
-st.header("✅ Data Quality Validation")
-
-validation_results = validate_dataset(df)
-
-validation_table = pd.DataFrame(
-    list(validation_results.items()),
-    columns=["Validation check", "Result"]
-)
-
-st.dataframe(
-    validation_table,
-    use_container_width=True,
-    hide_index=True
-)
-
-if (
-    validation_results["Missing cells"] == 0
-    and validation_results["Duplicate rows"] == 0
-    and validation_results["Duplicate column names"] == 0
-):
-
-    st.success(
-        "Basic data quality checks passed."
-    )
-
-else:
-
-    st.warning(
-        "Potential data quality issues detected. "
-        "Review missing values, duplicate records, "
-        "and column names before analysis."
-    )
-
-# ============================================================
-# END OF PART 2
-# Continue directly with Part 3 below this line.
-# ============================================================
-# ============================================================
-# 13. STATISTICAL ANALYSIS FUNCTIONS
-# ============================================================
-
-def descriptive_statistics(df):
-
-    numeric_df = df.select_dtypes(
-        include=np.number
-    )
-
-    if numeric_df.empty:
-        return pd.DataFrame()
-
-    summary = numeric_df.describe().T
-
-    summary["missing"] = numeric_df.isnull().sum()
-
-    summary["median"] = numeric_df.median()
-
-    summary["variance"] = numeric_df.var()
-
-    summary["skewness"] = numeric_df.skew()
-
-    return summary.round(3)
-
-
-# ============================================================
-# 14. WELCH TWO-SAMPLE T-TEST
-# ============================================================
-
-def welch_test(df, outcome, group="sex"):
-
-    if outcome not in df.columns or group not in df.columns:
-        return {"error": "Selected variables were not found."}
-
-    data = df[[outcome, group]].copy()
-
-    data[outcome] = pd.to_numeric(
-        data[outcome],
-        errors="coerce"
-    )
-
-    data = data.dropna()
-
-    groups = data[group].unique()
-
-    if len(groups) != 2:
-        return {
-            "error": "Welch t-test requires exactly two groups."
-        }
-
-    group1 = data.loc[
-        data[group] == groups[0], outcome
-    ]
-
-    group2 = data.loc[
-        data[group] == groups[1], outcome
-    ]
-
-    if len(group1) < 2 or len(group2) < 2:
-        return {
-            "error": "Each group must contain at least two observations."
-        }
-
-    statistic, p_value = stats.ttest_ind(
-        group1,
-        group2,
-        equal_var=False
-    )
-
-    mean1 = group1.mean()
-    mean2 = group2.mean()
-
-    difference = mean1 - mean2
-
-    variance1 = group1.var(ddof=1)
-    variance2 = group2.var(ddof=1)
-
-    n1 = len(group1)
-    n2 = len(group2)
-
-    standard_error = np.sqrt(
-        variance1 / n1 + variance2 / n2
-    )
-
-    numerator = (
-        variance1 / n1 + variance2 / n2
-    ) ** 2
-
-    denominator = (
-        (variance1 / n1) ** 2 / (n1 - 1)
-        + (variance2 / n2) ** 2 / (n2 - 1)
-    )
-
-    degrees_freedom = numerator / denominator
-
-    critical_value = stats.t.ppf(
-        0.975,
-        degrees_freedom
-    )
-
-    ci_lower = difference - critical_value * standard_error
-
-    ci_upper = difference + critical_value * standard_error
-
-    pooled_sd = np.sqrt(
-        (
-            (n1 - 1) * variance1
-            + (n2 - 1) * variance2
-        ) / (n1 + n2 - 2)
-    )
-
-    cohens_d = (
-        difference / pooled_sd
-        if pooled_sd > 0 else np.nan
-    )
-
-    correction = (
-        1 - (3 / (4 * (n1 + n2) - 9))
-    )
-
-    hedges_g = cohens_d * correction
-
-    return {
-        "group_1": str(groups[0]),
-        "group_2": str(groups[1]),
-        "n_1": n1,
-        "n_2": n2,
-        "mean_1": mean1,
-        "mean_2": mean2,
-        "mean_difference": difference,
-        "standard_error": standard_error,
-        "t_statistic": statistic,
-        "degrees_freedom": degrees_freedom,
-        "p_value": p_value,
-        "ci_lower": ci_lower,
-        "ci_upper": ci_upper,
-        "hedges_g": hedges_g
-    }
-
-
-# ============================================================
-# 15. BINARY OUTCOME COMPARISON
-# ============================================================
-
-def binary_comparison(df, outcome, group="sex"):
-
-    if outcome not in df.columns or group not in df.columns:
-        return {"error": "Selected variables were not found."}
-
-    data = df[[outcome, group]].dropna().copy()
-
-    groups = data[group].unique()
-
-    if len(groups) != 2:
-        return {
-            "error": "Comparison requires exactly two groups."
-        }
-
-    table = pd.crosstab(
-        data[group],
-        data[outcome]
-    )
-
-    if table.shape != (2, 2):
-        return {
-            "error": "Both variables must have exactly two categories."
-        }
-
-    chi2, p_value, dof, expected = stats.chi2_contingency(
-        table,
-        correction=False
-    )
-
-    fisher_odds, fisher_p = stats.fisher_exact(table)
-
-    percentages = (
-        pd.crosstab(
-            data[group],
-            data[outcome],
-            normalize="index"
-        ) * 100
-    )
-
-    return {
-        "table": table,
-        "percentages": percentages.round(2),
-        "chi_square": chi2,
-        "chi_square_p": p_value,
-        "fisher_odds_ratio": fisher_odds,
-        "fisher_p": fisher_p,
-        "expected_frequencies": expected
-    }
-
-
-# ============================================================
-# 16. COUNT MODEL DATA PREPARATION
-# ============================================================
-
-def prepare_count_model_data(
-    df,
-    outcome,
-    group="sex",
-    exposure=None
-):
-
-    required = [outcome, group]
-
-    if exposure:
-        required.append(exposure)
-
-    missing_columns = [
-        column for column in required
-        if column not in df.columns
-    ]
-
-    if missing_columns:
-        raise ValueError(
-            f"Missing columns: {missing_columns}"
-        )
-
-    data = df[required].copy()
-
-    data[outcome] = pd.to_numeric(
-        data[outcome],
-        errors="coerce"
-    )
-
-    if exposure:
-        data[exposure] = pd.to_numeric(
-            data[exposure],
-            errors="coerce"
-        )
-
-    data = data.dropna()
-
-    if len(data) < 10:
-        raise ValueError(
-            "At least 10 complete observations are required."
-        )
-
-    if (data[outcome] < 0).any():
-        raise ValueError(
-            "Count outcome cannot contain negative values."
-        )
-
-    if not np.allclose(
-        data[outcome],
-        np.round(data[outcome])
-    ):
-        raise ValueError(
-            "Outcome must contain whole-number counts."
-        )
-
-    if data[group].nunique() != 2:
-        raise ValueError(
-            "Group variable must contain exactly two categories."
-        )
-
-    if exposure:
-
-        if (data[exposure] <= 0).any():
-            raise ValueError(
-                "Exposure values must be greater than zero."
-            )
-
-    categories = sorted(
-        data[group].astype(str).unique()
-    )
-
-    data[group] = pd.Categorical(
-        data[group].astype(str),
-        categories=categories
-    )
-
-    reference_group = categories[0]
-
-    group_dummy = (
-        data[group] == categories[1]
-    ).astype(float)
-
-    X = pd.DataFrame({
-        "Intercept": 1.0,
-        f"{group}[T.{categories[1]}]": group_dummy
-    })
-
-    y = data[outcome].astype(float)
-
-    if exposure:
-        exposure_values = data[exposure].astype(float)
-    else:
-        exposure_values = None
-
-    return (
-        y,
-        X,
-        exposure_values,
-        reference_group,
-        categories[1]
-    )
-
-
-# ============================================================
-# 17. FORMAT REGRESSION RESULTS
-# ============================================================
-
-def format_count_model_results(model, reference_group, comparison_group):
-
-    confidence_intervals = model.conf_int()
-
-    rows = []
-
-    for parameter in model.params.index:
-
-        if parameter.lower() == "alpha":
-            continue
-
-        coefficient = float(model.params[parameter])
-
-        standard_error = float(model.bse[parameter])
-
-        p_value = float(model.pvalues[parameter])
-
-        lower = float(
-            confidence_intervals.loc[parameter, 0]
-        )
-
-        upper = float(
-            confidence_intervals.loc[parameter, 1]
-        )
-
-        rows.append({
-            "Parameter": parameter,
-            "Coefficient": coefficient,
-            "Standard Error": standard_error,
-            "IRR": np.exp(coefficient),
-            "IRR 95% CI Lower": np.exp(lower),
-            "IRR 95% CI Upper": np.exp(upper),
-            "P-value": p_value
-        })
-
-    results = pd.DataFrame(rows)
-
-    results.attrs["reference_group"] = reference_group
-    results.attrs["comparison_group"] = comparison_group
-
-    return results
-
-
-# ============================================================
-# 18. POISSON REGRESSION
-# ============================================================
-
-def poisson_regression(
-    df,
-    outcome,
-    group="sex",
-    exposure=None
-):
-
-    try:
-
-        (
-            y,
-            X,
-            exposure_values,
-            reference_group,
-            comparison_group
-        ) = prepare_count_model_data(
-            df,
-            outcome,
-            group,
-            exposure
-        )
-
-        if exposure_values is not None:
-
-            model = sm.GLM(
-                y,
-                X,
-                family=sm.families.Poisson(),
-                exposure=exposure_values
-            )
-
-        else:
-
-            model = sm.GLM(
-                y,
-                X,
-                family=sm.families.Poisson()
-            )
-
-        fitted = model.fit()
-
-        results = format_count_model_results(
-            fitted,
-            reference_group,
-            comparison_group
-        )
-
-        dispersion = (
-            fitted.pearson_chi2 / fitted.df_resid
-            if fitted.df_resid > 0 else np.nan
-        )
-
-        results.attrs["pearson_dispersion"] = float(dispersion)
-        results.attrs["deviance"] = float(fitted.deviance)
-        results.attrs["degrees_of_freedom"] = int(fitted.df_resid)
-
-        return results
-
-    except Exception as error:
-
-        return {
-            "error": str(error)
-        }
-
-
-# ============================================================
-# 19. NEGATIVE BINOMIAL REGRESSION
-# ============================================================
-
-def negative_binomial_regression(
-    df,
-    outcome,
-    group="sex",
-    exposure=None
-):
-
-    try:
-
-        (
-            y,
-            X,
-            exposure_values,
-            reference_group,
-            comparison_group
-        ) = prepare_count_model_data(
-            df,
-            outcome,
-            group,
-            exposure
-        )
-
-        if exposure_values is not None:
-
-            model = sm.NegativeBinomial(
-                y,
-                X,
-                exposure=exposure_values,
-                loglike_method="nb2"
-            )
-
-        else:
-
-            model = sm.NegativeBinomial(
-                y,
-                X,
-                loglike_method="nb2"
-            )
-
-        fitted = model.fit(
-            disp=False,
-            maxiter=200
-        )
-
-        results = format_count_model_results(
-            fitted,
-            reference_group,
-            comparison_group
-        )
-
-        if "alpha" in fitted.params.index:
-
-            alpha_index = fitted.params.index.get_loc("alpha")
-
-            alpha = float(fitted.params.iloc[alpha_index])
-
-            alpha_se = float(fitted.bse.iloc[alpha_index])
-
-            results = pd.concat(
-                [
-                    results,
-                    pd.DataFrame([{
-                        "Parameter": "Alpha (dispersion)",
-                        "Coefficient": alpha,
-                        "Standard Error": alpha_se,
-                        "IRR": np.nan,
-                        "IRR 95% CI Lower": np.nan,
-                        "IRR 95% CI Upper": np.nan,
-                        "P-value": float(
-                            fitted.pvalues.iloc[alpha_index]
-                        )
-                    }])
-                ],
-                ignore_index=True
-            )
-
-        results.attrs["reference_group"] = reference_group
-        results.attrs["comparison_group"] = comparison_group
-
-        return results
-
-    except Exception as error:
-
-        return {
-            "error": str(error)
-        }
-
-
-# ============================================================
-# END OF PART 3
-# Continue directly with Part 4 below this line.
-# ============================================================
-# ============================================================
-# 20. VISUALIZATION FUNCTIONS
-# ============================================================
-
-def create_group_plot(df, outcome, group="sex"):
-
-    data = df[[outcome, group]].copy()
-
-    data[outcome] = pd.to_numeric(
-        data[outcome],
-        errors="coerce"
-    )
-
-    data = data.dropna()
-
-    if data.empty:
-        return None
-
-    summary = data.groupby(
-        group,
-        observed=True
-    )[outcome].mean()
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-
-    summary.plot(
-        kind="bar",
-        ax=ax
-    )
-
-    ax.set_title(
-        f"Mean {outcome} by {group}"
-    )
-
-    ax.set_xlabel(group)
-    ax.set_ylabel(f"Mean {outcome}")
-
-    ax.tick_params(axis="x", rotation=0)
-
-    fig.tight_layout()
-
-    return fig
-
-
-def create_distribution_plot(df, outcome):
-
-    if outcome not in df.columns:
-        return None
-
-    values = pd.to_numeric(
-        df[outcome],
-        errors="coerce"
-    ).dropna()
-
-    if values.empty:
-        return None
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-
-    ax.hist(
-        values,
-        bins=20,
-        edgecolor="black"
-    )
-
-    ax.set_title(
-        f"Distribution of {outcome}"
-    )
-
-    ax.set_xlabel(outcome)
-    ax.set_ylabel("Frequency")
-
-    fig.tight_layout()
-
-    return fig
-
-
-# ============================================================
-# 21. ANALYSIS SUMMARY FUNCTION
-# ============================================================
-
-def create_analysis_summary(df):
-
-    summary = {
-        "Total observations": len(df),
-        "Total variables": len(df.columns),
-        "Missing cells": int(df.isnull().sum().sum()),
-        "Duplicate rows": int(df.duplicated().sum())
-    }
-
-    if "sex" in df.columns:
-
-        summary["Group distribution"] = (
-            df["sex"]
-            .value_counts(dropna=False)
-            .to_dict()
-        )
-
-    return summary
-
-
-# ============================================================
-# 22. DOWNLOAD FUNCTIONS
-# ============================================================
-
-def dataframe_to_csv(df):
-
-    return df.to_csv(
-        index=False
-    ).encode("utf-8")
-
-
-def create_excel_report(df, descriptive=None):
-
-    output = io.BytesIO()
-
-    with pd.ExcelWriter(
-        output,
-        engine="openpyxl"
-    ) as writer:
-
-        df.to_excel(
-            writer,
-            sheet_name="Dataset",
-            index=False
-        )
-
-        if descriptive is not None:
-
-            descriptive.to_excel(
-                writer,
-                sheet_name="Descriptive Statistics"
-            )
-
-        validation = pd.DataFrame(
-            list(validate_dataset(df).items()),
-            columns=["Validation Check", "Result"]
-        )
-
-        validation.to_excel(
-            writer,
-            sheet_name="Data Validation",
-            index=False
-        )
-
-    output.seek(0)
-
-    return output.getvalue()
-
-
-# ============================================================
-# 23. DOWNLOAD SECTION
-# ============================================================
-
-st.header("📥 Download Dataset and Reports")
-
-download_col1, download_col2 = st.columns(2)
-
-with download_col1:
-
-    st.download_button(
-        label="Download dataset (CSV)",
-        data=dataframe_to_csv(st.session_state.data),
-        file_name="TSC_research_dataset.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
-
-with download_col2:
-
-    try:
-
-        descriptive_for_export = descriptive_statistics(
-            st.session_state.data
-        )
-
-        excel_data = create_excel_report(
-            st.session_state.data,
-            descriptive_for_export
+        st.markdown(
+            st.session_state.research_outputs[title]
         )
 
         st.download_button(
-            label="Download research report (Excel)",
-            data=excel_data,
-            file_name="TSC_research_report.xlsx",
-            mime=(
-                "application/vnd.openxmlformats-officedocument."
-                "spreadsheetml.sheet"
-            ),
-            use_container_width=True
+            label=f"Download {title}",
+            data=st.session_state.research_outputs[title],
+            file_name=f"research_step_{stage_number}.txt",
+            mime="text/plain",
+            key=f"{stage_key}_download"
         )
 
-    except Exception as error:
-
-        st.warning(
-            f"Excel report could not be prepared: {error}"
-        )
-
-
 # ============================================================
-# 24. VISUALIZATION SECTION
+# 10. STEP 1 — RESEARCH QUESTIONS
 # ============================================================
 
-st.header("📈 Data Visualizations")
+st.header("Research Development Workflow")
 
-current_df = st.session_state.data
-
-numeric_columns = (
-    current_df.select_dtypes(include=np.number)
-    .columns.tolist()
+st.markdown(
+    "Complete the following stages in sequence. "
+    "Each stage builds on the research work developed earlier."
 )
 
-if numeric_columns:
+research_stage(
+    stage_number=1,
+    title="Research Questions and Objectives",
+    description=(
+        "Develop focused, clear, and answerable research "
+        "questions from the overall research objective."
+    ),
+    instructions="""
+Develop this research stage.
 
-    selected_plot_variable = st.selectbox(
-        "Select a variable for distribution",
-        numeric_columns,
-        key="distribution_variable"
-    )
+1. Identify the central research problem.
+2. Develop one primary research question.
+3. Suggest relevant secondary research questions.
+4. Refine the primary and secondary objectives.
+5. Explain how each question can be answered quantitatively.
+6. Check whether the questions are specific and measurable.
 
-    distribution_fig = create_distribution_plot(
-        current_df,
-        selected_plot_variable
-    )
-
-    if distribution_fig is not None:
-
-        st.pyplot(distribution_fig)
-
-        plt.close(distribution_fig)
-
-    if "sex" in current_df.columns:
-
-        selected_group_variable = st.selectbox(
-            "Select an outcome for group comparison",
-            numeric_columns,
-            key="group_plot_variable"
-        )
-
-        group_fig = create_group_plot(
-            current_df,
-            selected_group_variable
-        )
-
-        if group_fig is not None:
-
-            st.pyplot(group_fig)
-
-            plt.close(group_fig)
-
-else:
-
-    st.info(
-        "No numeric variables are available for visualization."
-    )
-
-
-# ============================================================
-# END OF PART 4
-# Continue directly with Part 5 below this line.
-# ============================================================
-# ============================================================
-# 25. MAIN APPLICATION INTERFACE
-# ============================================================
-
-st.divider()
-
-st.header("🧪 Quantitative Research Analysis")
-
-current_df = st.session_state.data
-
-numeric_columns = (
-    current_df.select_dtypes(include=np.number)
-    .columns.tolist()
+Explain the difference between a research question,
+a research aim, and a research objective.
+"""
 )
 
-# ------------------------------------------------------------
-# DESCRIPTIVE STATISTICS
-# ------------------------------------------------------------
-
-st.subheader("1. Descriptive Statistics")
-
-if st.button(
-    "Generate Descriptive Statistics",
-    key="run_descriptive"
-):
-
-    descriptive_result = descriptive_statistics(
-        current_df
-    )
-
-    st.session_state.analysis_results[
-        "descriptive"
-    ] = descriptive_result
-
-if "descriptive" in st.session_state.analysis_results:
-
-    st.dataframe(
-        st.session_state.analysis_results["descriptive"],
-        use_container_width=True
-    )
-
-
-# ------------------------------------------------------------
-# WELCH T-TEST
-# ------------------------------------------------------------
-
 st.divider()
-
-st.subheader("2. Group Comparison — Welch's t-test")
-
-if "sex" in current_df.columns and numeric_columns:
-
-    ttest_outcome = st.selectbox(
-        "Select numeric outcome",
-        numeric_columns,
-        key="ttest_outcome"
-    )
-
-    if st.button(
-        "Run Welch's t-test",
-        key="run_ttest"
-    ):
-
-        ttest_result = welch_test(
-            current_df,
-            ttest_outcome,
-            "sex"
-        )
-
-        st.session_state.analysis_results[
-            "welch"
-        ] = ttest_result
-
-    if "welch" in st.session_state.analysis_results:
-
-        result = st.session_state.analysis_results["welch"]
-
-        if isinstance(result, dict) and "error" in result:
-
-            st.error(result["error"])
-
-        else:
-
-            st.write("Welch's t-test results")
-
-            st.dataframe(
-                pd.DataFrame([
-                    {
-                        "Measure": "Group 1",
-                        "Result": result["group_1"]
-                    },
-                    {
-                        "Measure": "Group 2",
-                        "Result": result["group_2"]
-                    },
-                    {
-                        "Measure": "Group 1 sample size",
-                        "Result": result["n_1"]
-                    },
-                    {
-                        "Measure": "Group 2 sample size",
-                        "Result": result["n_2"]
-                    },
-                    {
-                        "Measure": "Group 1 mean",
-                        "Result": round(result["mean_1"], 3)
-                    },
-                    {
-                        "Measure": "Group 2 mean",
-                        "Result": round(result["mean_2"], 3)
-                    },
-                    {
-                        "Measure": "Mean difference",
-                        "Result": round(
-                            result["mean_difference"], 3
-                        )
-                    },
-                    {
-                        "Measure": "95% CI lower",
-                        "Result": round(result["ci_lower"], 3)
-                    },
-                    {
-                        "Measure": "95% CI upper",
-                        "Result": round(result["ci_upper"], 3)
-                    },
-                    {
-                        "Measure": "t-statistic",
-                        "Result": round(result["t_statistic"], 3)
-                    },
-                    {
-                        "Measure": "Degrees of freedom",
-                        "Result": round(
-                            result["degrees_freedom"], 3
-                        )
-                    },
-                    {
-                        "Measure": "P-value",
-                        "Result": round(result["p_value"], 5)
-                    },
-                    {
-                        "Measure": "Hedges' g",
-                        "Result": round(result["hedges_g"], 3)
-                    }
-                ]),
-                use_container_width=True,
-                hide_index=True
-            )
-
-            st.caption(
-                "Welch's t-test compares group means without "
-                "assuming equal population variances. "
-                "Interpret the confidence interval, effect size, "
-                "and p-value together."
-            )
-
-else:
-
-    st.info(
-        "Welch's t-test requires a numeric outcome and a "
-        "two-category group variable named sex."
-    )
-
-
-# ------------------------------------------------------------
-# BINARY OUTCOME COMPARISON
-# ------------------------------------------------------------
-
-st.divider()
-
-st.subheader("3. Binary Outcome Comparison")
-
-binary_candidates = []
-
-for column in current_df.columns:
-
-    if column == "sex":
-        continue
-
-    if current_df[column].dropna().nunique() == 2:
-        binary_candidates.append(column)
-
-if "sex" in current_df.columns and binary_candidates:
-
-    binary_outcome = st.selectbox(
-        "Select binary outcome",
-        binary_candidates,
-        key="binary_outcome"
-    )
-
-    if st.button(
-        "Compare Binary Outcome",
-        key="run_binary"
-    ):
-
-        binary_result = binary_comparison(
-            current_df,
-            binary_outcome,
-            "sex"
-        )
-
-        st.session_state.analysis_results[
-            "binary"
-        ] = binary_result
-
-    if "binary" in st.session_state.analysis_results:
-
-        result = st.session_state.analysis_results["binary"]
-
-        if isinstance(result, dict) and "error" in result:
-
-            st.error(result["error"])
-
-        else:
-
-            st.write("Observed frequencies")
-
-            st.dataframe(
-                result["table"],
-                use_container_width=True
-            )
-
-            st.write("Row percentages (%)")
-
-            st.dataframe(
-                result["percentages"],
-                use_container_width=True
-            )
-
-            metric1, metric2, metric3 = st.columns(3)
-
-            metric1.metric(
-                "Chi-square statistic",
-                f"{result['chi_square']:.3f}"
-            )
-
-            metric2.metric(
-                "Chi-square p-value",
-                f"{result['chi_square_p']:.5f}"
-            )
-
-            metric3.metric(
-                "Fisher exact p-value",
-                f"{result['fisher_p']:.5f}"
-            )
-
-            st.caption(
-                "Fisher's exact test is useful when expected "
-                "cell frequencies are small. Select the test "
-                "based on the data and study design."
-            )
-
-else:
-
-    st.info(
-        "No suitable binary outcome and sex grouping variable "
-        "were found in the current dataset."
-    )
-
-
-# ------------------------------------------------------------
-# POISSON REGRESSION
-# ------------------------------------------------------------
-
-st.divider()
-
-st.subheader("4. Poisson Regression")
-
-count_candidates = []
-
-for column in numeric_columns:
-
-    values = pd.to_numeric(
-        current_df[column],
-        errors="coerce"
-    ).dropna()
-
-    if (
-        not values.empty
-        and (values >= 0).all()
-        and np.allclose(values, np.round(values))
-        and values.nunique() > 1
-    ):
-
-        count_candidates.append(column)
-
-if "sex" in current_df.columns and count_candidates:
-
-    poisson_outcome = st.selectbox(
-        "Select count outcome",
-        count_candidates,
-        key="poisson_outcome"
-    )
-
-    exposure_options = ["None"] + numeric_columns
-
-    poisson_exposure = st.selectbox(
-        "Select exposure or follow-up time (optional)",
-        exposure_options,
-        key="poisson_exposure"
-    )
-
-    if poisson_exposure == "None":
-        poisson_exposure = None
-
-    if st.button(
-        "Run Poisson Regression",
-        key="run_poisson"
-    ):
-
-        poisson_result = poisson_regression(
-            current_df,
-            poisson_outcome,
-            "sex",
-            poisson_exposure
-        )
-
-        st.session_state.analysis_results[
-            "poisson"
-        ] = poisson_result
-
-    if "poisson" in st.session_state.analysis_results:
-
-        result = st.session_state.analysis_results["poisson"]
-
-        if isinstance(result, dict) and "error" in result:
-
-            st.error(result["error"])
-
-        else:
-
-            st.write("Poisson regression results")
-
-            st.dataframe(
-                result,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            dispersion = result.attrs.get(
-                "pearson_dispersion",
-                np.nan
-            )
-
-            st.metric(
-                "Pearson dispersion statistic",
-                (
-                    f"{dispersion:.3f}"
-                    if pd.notna(dispersion)
-                    else "Not available"
-                )
-            )
-
-            st.caption(
-                "IRR means Incidence Rate Ratio. The reference "
-                "group is shown in the model results. A Pearson "
-                "dispersion value substantially above 1 may "
-                "indicate overdispersion and should prompt "
-                "further model assessment."
-            )
-
-else:
-
-    st.info(
-        "Poisson regression requires a two-category sex "
-        "variable and a suitable count outcome."
-    )
-
-
-# ------------------------------------------------------------
-# NEGATIVE BINOMIAL REGRESSION
-# ------------------------------------------------------------
-
-st.divider()
-
-st.subheader("5. Negative Binomial Regression")
-
-if "sex" in current_df.columns and count_candidates:
-
-    nb_outcome = st.selectbox(
-        "Select count outcome",
-        count_candidates,
-        key="nb_outcome"
-    )
-
-    nb_exposure = st.selectbox(
-        "Select exposure or follow-up time (optional)",
-        ["None"] + numeric_columns,
-        key="nb_exposure"
-    )
-
-    if nb_exposure == "None":
-        nb_exposure = None
-
-    if st.button(
-        "Run Negative Binomial Regression",
-        key="run_nb"
-    ):
-
-        nb_result = negative_binomial_regression(
-            current_df,
-            nb_outcome,
-            "sex",
-            nb_exposure
-        )
-
-        st.session_state.analysis_results[
-            "negative_binomial"
-        ] = nb_result
-
-    if "negative_binomial" in st.session_state.analysis_results:
-
-        result = st.session_state.analysis_results[
-            "negative_binomial"
-        ]
-
-        if isinstance(result, dict) and "error" in result:
-
-            st.error(result["error"])
-
-        else:
-
-            st.write("Negative Binomial regression results")
-
-            st.dataframe(
-                result,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            st.caption(
-                "Negative Binomial regression can account for "
-                "overdispersion in count outcomes. Alpha is the "
-                "dispersion parameter, not an incidence rate ratio."
-            )
-
-else:
-
-    st.info(
-        "Negative Binomial regression requires a suitable "
-        "count outcome and a two-category sex variable."
-    )
-
 
 # ============================================================
-# 26. AI-ASSISTED RESEARCH WORKSPACE
+# 11. STEP 2 — STUDY DESIGN AND METHODOLOGY
 # ============================================================
+
+research_stage(
+    stage_number=2,
+    title="Study Design and Methodology",
+    description=(
+        "Determine how the research questions can be investigated, "
+        "including the population, setting, and study design."
+    ),
+    instructions="""
+Develop the study methodology.
+
+1. Recommend a suitable quantitative study design.
+2. Explain why this design fits the research questions.
+3. Define the target population.
+4. Suggest inclusion and exclusion criteria.
+5. Discuss possible study settings and data sources.
+6. Explain possible sampling approaches.
+7. Discuss sample size considerations.
+8. Identify feasibility and ethical considerations.
+
+Compare alternative study designs briefly where relevant.
+Do not claim that a particular dataset or data source is available.
+"""
+)
 
 st.divider()
 
-st.header("🤖 AI-Assisted Research Workspace")
+# ============================================================
+# 12. STEP 3 — VARIABLES AND DATA COLLECTION
+# ============================================================
+
+research_stage(
+    stage_number=3,
+    title="Variables and Data Collection",
+    description=(
+        "Translate the research questions into measurable variables "
+        "and define how information would be collected."
+    ),
+    instructions="""
+Develop a variable framework for this study.
+
+1. Identify the primary outcome variable.
+2. Identify relevant secondary outcome variables.
+3. Identify the main exposure or grouping variable.
+4. Identify potential confounding variables.
+5. Suggest operational definitions for each variable.
+6. Identify suitable measurement scales and data types.
+7. Explain how variables relate to the research questions.
+8. Present a structured variable table.
+
+For each suggested variable, explain what it measures
+and why it is relevant.
+
+Do not assume that all suggested variables will be available
+in the final dataset.
+"""
+)
+
+st.divider()
+
+# ============================================================
+# 13. STEP 4 — STATISTICAL ANALYSIS PLAN
+# ============================================================
+
+research_stage(
+    stage_number=4,
+    title="Statistical Analysis Plan",
+    description=(
+        "Select statistical methods according to the research "
+        "questions, outcome variables, study design, and data."
+    ),
+    instructions="""
+Prepare a structured statistical analysis plan.
+
+1. Explain the descriptive analysis required.
+2. Match each research question with an appropriate
+   statistical comparison or model.
+3. Explain methods for continuous outcomes.
+4. Explain methods for binary outcomes.
+5. Explain methods for count outcomes.
+6. Discuss regression approaches and adjustment for confounders.
+7. Explain assumptions and diagnostic checks.
+8. Discuss missing data.
+9. Explain how results could be presented using tables
+   and figures.
+
+Where relevant, discuss:
+- Welch's t-test
+- Chi-square test
+- Fisher's exact test
+- Logistic regression
+- Poisson regression
+- Negative binomial regression
+
+Do not recommend every method automatically.
+Explain which methods are relevant to this specific study
+and what information is needed before choosing them.
+"""
+)
+
+st.divider()
+
+# ============================================================
+# 14. STEP 5 — INTERPRETATION AND RESEARCH QUALITY
+# ============================================================
+
+research_stage(
+    stage_number=5,
+    title="Interpretation, Bias and Research Quality",
+    description=(
+        "Consider how results should be interpreted and what "
+        "methodological limitations may affect the findings."
+    ),
+    instructions="""
+Review the methodological quality of the proposed research.
+
+1. Explain how the findings should be interpreted.
+2. Distinguish statistical significance from clinical
+   or practical significance.
+3. Discuss effect sizes and confidence intervals.
+4. Identify possible confounding.
+5. Discuss selection bias and information bias.
+6. Consider missing data and measurement limitations.
+7. Identify possible sources of uncertainty.
+8. Discuss generalizability.
+9. Suggest sensitivity or robustness checks where appropriate.
+10. Identify what requires supervisor or statistician review.
+
+Do not invent findings or claim that hypothetical results
+have already been observed.
+"""
+)
+
+st.divider()
+
+# ============================================================
+# 15. STEP 6 — RESEARCH PROPOSAL
+# ============================================================
+
+research_stage(
+    stage_number=6,
+    title="Research Proposal Development",
+    description=(
+        "Bring the previous research-development stages together "
+        "into a coherent quantitative research proposal."
+    ),
+    instructions="""
+Prepare a structured research proposal using the research
+topic, objective, and work from previous stages.
+
+Include:
+
+1. Proposed title
+2. Background and research rationale
+3. Research problem
+4. Research question
+5. Primary and secondary objectives
+6. Proposed study design
+7. Study population and setting
+8. Eligibility criteria
+9. Variables and operational definitions
+10. Data collection approach
+11. Statistical analysis plan
+12. Ethical considerations
+13. Potential limitations
+14. Expected contribution to pharmacy or health services research
+
+Maintain consistency across all sections.
+
+Do not invent literature citations, study findings,
+or evidence of a confirmed research gap.
+
+Clearly label points that need literature review,
+supervisor input, or further verification.
+"""
+)
+
+st.divider()
+
+# ============================================================
+# 16. FINAL CONSOLIDATED PROPOSAL
+# ============================================================
+
+st.header("Final Research Proposal")
 
 st.write(
-    "Use the AI assistant to develop research questions, "
-    "review methodology, understand statistical concepts, "
-    "and organize research proposals."
+    "After developing the research stages, generate one "
+    "consolidated proposal using the work completed above."
 )
-
-topic = st.text_area(
-    "Research topic",
-    value=st.session_state.selected_topic,
-    height=90,
-    key="ai_research_topic"
-)
-
-objective = st.text_area(
-    "Research objective",
-    value=st.session_state.selected_objective,
-    height=90,
-    key="ai_research_objective"
-)
-
-selected_module = st.selectbox(
-    "Select research support module",
-    list(MODULES.keys()),
-    key="ai_module"
-)
-
-st.info(
-    MODULES[selected_module]
-)
-
-additional_context = st.text_area(
-    "Additional instructions or research context",
-    placeholder=(
-        "Enter your research question, study details, "
-        "variables, or methodological concerns..."
-    ),
-    height=120,
-    key="ai_context"
-)
-
-uploaded_research_file = st.file_uploader(
-    "Optional: Upload a text file containing research notes",
-    type=["txt"],
-    key="ai_research_file"
-)
-
-uploaded_research_text = ""
-
-if uploaded_research_file is not None:
-
-    try:
-
-        uploaded_research_text = (
-            uploaded_research_file
-            .getvalue()
-            .decode("utf-8")
-        )
-
-    except Exception:
-
-        st.warning(
-            "The uploaded text file could not be decoded."
-        )
 
 if st.button(
-    "Generate AI Research Guidance",
+    "Generate Consolidated Research Proposal",
     type="primary",
-    key="generate_ai"
+    key="final_proposal_button"
 ):
 
-    client = get_groq_client()
+    previous_work = get_previous_work()
 
-    with st.spinner(
-        "Generating research guidance..."
-    ):
+    if not previous_work.strip():
 
-        ai_response = generate_ai_response(
-            client=client,
-            module=selected_module,
-            topic=topic,
-            objective=objective,
-            context=additional_context,
-            uploaded_text=uploaded_research_text
+        st.warning(
+            "Please complete at least the first research stage "
+            "before generating a proposal."
         )
 
-    st.session_state.ai_history.append({
-        "module": selected_module,
-        "topic": topic,
-        "response": ai_response,
-        "time": datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-    })
+    else:
 
+        final_instructions = """
+Prepare a coherent consolidated quantitative research proposal
+using the research work supplied from the completed stages.
 
-# ------------------------------------------------------------
-# DISPLAY AI OUTPUT
-# ------------------------------------------------------------
+Organize the proposal into:
 
-if st.session_state.ai_history:
+1. Title
+2. Background and rationale
+3. Research problem
+4. Research question
+5. Research objectives
+6. Study design and methodology
+7. Study population and setting
+8. Variables and operational definitions
+9. Data collection
+10. Statistical analysis plan
+11. Research quality and potential bias
+12. Ethical considerations
+13. Limitations
+14. Potential contribution
 
-    st.subheader("AI Research Output")
+Identify inconsistencies between the earlier stages.
+Do not silently invent missing information.
+Clearly mark sections that need further development,
+literature verification, or supervisor input.
+"""
 
-    for index, item in enumerate(
-        reversed(st.session_state.ai_history)
-    ):
-
-        with st.expander(
-            f"{item['module']} — {item['time']}",
-            expanded=(index == 0)
+        with st.spinner(
+            "Preparing the consolidated research proposal..."
         ):
 
-            st.markdown(
-                item["response"]
+            final_result = generate_ai_response(
+                stage="Consolidated Research Proposal",
+                topic=topic,
+                objective=objective,
+                instructions=final_instructions,
+                previous_work=previous_work
             )
 
-            st.download_button(
-                label="Download this AI response",
-                data=item["response"].encode("utf-8"),
-                file_name=(
-                    f"research_guidance_{index + 1}.txt"
-                ),
-                mime="text/plain",
-                key=f"download_ai_{index}"
-            )
+        st.session_state.research_outputs[
+            "Final Research Proposal"
+        ] = final_result
 
+if "Final Research Proposal" in st.session_state.research_outputs:
 
-# ============================================================
-# 27. RESEARCH INTERPRETATION AND LIMITATIONS
-# ============================================================
+    st.markdown("### Consolidated Proposal")
+
+    st.markdown(
+        st.session_state.research_outputs["Final Research Proposal"]
+    )
+
+    st.download_button(
+        label="Download Complete Research Proposal",
+        data=st.session_state.research_outputs[
+            "Final Research Proposal"
+        ],
+        file_name="quantitative_research_proposal.txt",
+        mime="text/plain",
+        key="final_proposal_download"
+    )
 
 st.divider()
 
-st.header("📌 Research Interpretation Guidelines")
+# ============================================================
+# 17. RESEARCH WORK SUMMARY
+# ============================================================
+
+st.header("Research Progress")
+
+completed_stages = len(st.session_state.research_outputs)
+
+total_stages = 6
+
+st.progress(
+    min(completed_stages, total_stages) / total_stages
+)
+
+st.write(
+    f"Research stages completed: "
+    f"{min(completed_stages, total_stages)} / {total_stages}"
+)
+
+for stage_name in [
+    "Research Questions and Objectives",
+    "Study Design and Methodology",
+    "Variables and Data Collection",
+    "Statistical Analysis Plan",
+    "Interpretation, Bias and Research Quality",
+    "Research Proposal Development"
+]:
+
+    if stage_name in st.session_state.research_outputs:
+        st.success(f"Completed: {stage_name}")
+    else:
+        st.info(f"Pending: {stage_name}")
+
+st.divider()
+
+# ============================================================
+# 18. RESEARCH GUIDELINES
+# ============================================================
+
+st.subheader("Important Research Guidelines")
 
 st.markdown(
     """
-    - Statistical significance does not automatically imply
-      clinical or practical significance.
-    - Effect sizes and confidence intervals should be
-      considered alongside p-values.
-    - Regression estimates depend on model specification
-      and assumptions.
-    - Confounding, missing data, selection bias, and
-      measurement quality must be considered.
-    - Synthetic demonstration data are not real patient
-      records and cannot establish clinical evidence.
-    - All final statistical analyses and interpretations
-      require appropriate researcher and supervisor review.
+    - AI suggestions are a starting point, not final research decisions.
+    - Study design must match the research question.
+    - Variables must be clearly defined before analysis.
+    - Statistical methods must match the outcome type and study design.
+    - Confounding, missing data, and bias must be considered.
+    - Literature claims and references must be independently verified.
+    - Final methods and interpretations require supervisor review.
     """
 )
 
-
 # ============================================================
-# 28. FOOTER
+# 19. FOOTER
 # ============================================================
 
 st.divider()
 
 st.caption(
     "AI-Assisted Quantitative Research Assistant | "
-    "Educational research prototype | "
-    "Not a substitute for expert statistical review."
+    "Research planning and proposal development prototype"
 )
-
-# ============================================================
-# END OF APP.PY
-# ============================================================
