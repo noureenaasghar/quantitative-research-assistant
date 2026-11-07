@@ -886,11 +886,11 @@ def create_group_plot(df, variable, title):
         ]
     ]
 
-    ax.boxplot(
-        groups,
-        labels=["Female", "Male"],
-        patch_artist=True
-    )
+   ax.boxplot(
+    groups,
+    tick_labels=group_names,
+    patch_artist=True
+)
 
     ax.set_title(title)
     ax.set_ylabel(variable)
