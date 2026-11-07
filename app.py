@@ -2108,7 +2108,7 @@ if data is not None:
                     st.write("Poisson regression results")
 
                     st.dataframe(
-                        result["results"],
+                     result
                         use_container_width=True
                     )
 
