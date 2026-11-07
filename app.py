@@ -716,7 +716,7 @@ Instructions:
             {"role": "user", "content": user_prompt}
         ],
         temperature=0.2,
-        max_tokens=6000
+        max_tokens=3000
     )
 
     return response.choices[0].message.content
