@@ -790,7 +790,16 @@ def _format_count_model_results(
 
     return pd.DataFrame(results).set_index("Parameter")
 
+def descriptive_statistics(data):
+    if data is None or data.empty:
+        return pd.DataFrame()
 
+    numeric_data = data.select_dtypes(include=[np.number])
+
+    if numeric_data.empty:
+        return pd.DataFrame()
+
+    return numeric_data.describe().T
 def poisson_regression(
     data,
     outcome_col,
