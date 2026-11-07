@@ -800,6 +800,104 @@ def descriptive_statistics(data):
         return pd.DataFrame()
 
     return numeric_data.describe().T
+    def welch_test(data, group_col, outcome_col):
+
+    df = data[[group_col, outcome_col]].copy()
+
+    df[outcome_col] = pd.to_numeric(
+        df[outcome_col], errors="coerce"
+    )
+
+    df = df.dropna()
+
+    groups = list(df[group_col].dropna().unique())
+
+    if len(groups) != 2:
+        raise ValueError(
+            "Welch t-test requires exactly two groups."
+        )
+
+    group1 = df.loc[
+        df[group_col] == groups[0], outcome_col
+    ].astype(float)
+
+    group2 = df.loc[
+        df[group_col] == groups[1], outcome_col
+    ].astype(float)
+
+    if len(group1) < 2 or len(group2) < 2:
+        raise ValueError(
+            "Each group must have at least two observations."
+        )
+
+    statistic, p_value = stats.ttest_ind(
+        group1,
+        group2,
+        equal_var=False
+    )
+
+    mean1 = group1.mean()
+    mean2 = group2.mean()
+
+    mean_difference = mean1 - mean2
+
+    var1 = group1.var(ddof=1)
+    var2 = group2.var(ddof=1)
+
+    se = np.sqrt(
+        var1 / len(group1) +
+        var2 / len(group2)
+    )
+
+    df_welch = (
+        (var1 / len(group1) + var2 / len(group2)) ** 2
+        /
+        (
+            (var1 / len(group1)) ** 2 / (len(group1) - 1)
+            +
+            (var2 / len(group2)) ** 2 / (len(group2) - 1)
+        )
+    )
+
+    critical_value = stats.t.ppf(
+        0.975, df_welch
+    )
+
+    ci_lower = mean_difference - critical_value * se
+    ci_upper = mean_difference + critical_value * se
+
+    pooled_sd = np.sqrt(
+        (
+            (len(group1) - 1) * var1 +
+            (len(group2) - 1) * var2
+        )
+        /
+        (len(group1) + len(group2) - 2)
+    )
+
+    hedges_g = np.nan
+
+    if pooled_sd > 0:
+        cohen_d = mean_difference / pooled_sd
+
+        correction = 1 - (
+            3 / (4 * (len(group1) + len(group2)) - 9)
+        )
+
+        hedges_g = cohen_d * correction
+
+    return {
+        "Group 1": str(groups[0]),
+        "Group 2": str(groups[1]),
+        "Group 1 Mean": mean1,
+        "Group 2 Mean": mean2,
+        "Mean Difference": mean_difference,
+        "Welch t-statistic": statistic,
+        "p-value": p_value,
+        "95% CI Lower": ci_lower,
+        "95% CI Upper": ci_upper,
+        "Hedges' g": hedges_g
+    }
 def poisson_regression(
     data,
     outcome_col,
