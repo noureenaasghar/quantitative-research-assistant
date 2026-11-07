@@ -800,7 +800,7 @@ def descriptive_statistics(data):
         return pd.DataFrame()
 
     return numeric_data.describe().T
-    def welch_test(data, group_col, outcome_col):
+def welch_test(data, group_col, outcome_col):
     df = data[[group_col, outcome_col]].copy()
 
     df[outcome_col] = pd.to_numeric(
