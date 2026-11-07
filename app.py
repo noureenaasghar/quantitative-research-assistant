@@ -2095,34 +2095,37 @@ if data is not None:
 
                     st.session_state.poisson_result = poisson_result
 
-            if "poisson_result" in st.session_state:
+if "poisson_result" in st.session_state:
 
-                result = st.session_state.poisson_result
+    result = st.session_state.poisson_result
 
-                if "error" in result:
+    if "error" in result:
 
-                    st.error(result["error"])
+        st.error(result["error"])
 
-                else:
+    else:
 
-                    st.write("Poisson regression results")
+        st.write("Poisson regression results")
 
-                    st.dataframe(
-                     result
-                        use_container_width=True
-                    )
+        st.dataframe(
+            result,
+            use_container_width=True
+        )
 
-                    st.write(
-                        "Pearson dispersion statistic: "
-                        f"{result['pearson_dispersion']:.3f}"
-                    )
+        dispersion = result.attrs.get(
+            "pearson_dispersion", np.nan
+        )
 
-                    st.caption(
-                        "A dispersion value substantially above 1 "
-                        "may indicate overdispersion. This is a "
-                        "diagnostic signal, not an automatic rule "
-                        "for selecting a model."
-                    )
+        st.write(
+            f"Pearson dispersion statistic: {dispersion:.3f}"
+        )
+
+        st.caption(
+            "A dispersion value substantially above 1 "
+            "may indicate overdispersion. This is a "
+            "diagnostic signal, not an automatic rule "
+            "for selecting a model."
+        )
 
             if st.button(
                 "Run Negative Binomial Regression",
