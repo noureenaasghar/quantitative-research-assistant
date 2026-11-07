@@ -1,0 +1,10 @@
+
+streamlit
+groq
+pandas
+matplotlib
+plotly
+python-docx
+scipy
+statsmodels
+lifelines
