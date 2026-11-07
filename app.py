@@ -886,11 +886,24 @@ def create_group_plot(df, variable, title):
         ]
     ]
 
-   ax.boxplot(
-    groups,
-    tick_labels=group_names,
-    patch_artist=True
-)
+def create_boxplot(df, variable, title):
+
+    female_values = df.loc[df["sex"] == "Female", variable].dropna()
+    male_values = df.loc[df["sex"] == "Male", variable].dropna()
+
+    if female_values.empty or male_values.empty:
+        return None
+
+    groups = [female_values, male_values]
+    group_names = ["Female", "Male"]
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+
+    ax.boxplot(
+        groups,
+        tick_labels=group_names,
+        patch_artist=True
+    )
 
     ax.set_title(title)
     ax.set_ylabel(variable)
